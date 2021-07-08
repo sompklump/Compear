@@ -27,7 +27,6 @@ namespace Comparer
             dataFlowPanel.AutoSize = true;
             dataFlowPanel.AutoScroll = true;
             dataFlowPanel.Dock = DockStyle.Fill;
-            SaveTemplates();
             foreach (Template tmp in LoadTemplates())
             {
                 ToolStripButton button = new ToolStripButton();
@@ -72,7 +71,7 @@ namespace Comparer
             Button makeTemplate_btn = new Button();
             makeTemplate_btn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             makeTemplate_btn.Name = $"{p.Name}-mkTemp";
-            makeTemplate_btn.Click += Template.MakeTemplate_click;
+            makeTemplate_btn.Click += MakeTemplate_click;
             makeTemplate_btn.Text = "⎙";
             makeTemplate_btn.Font = new Font(newCont_btn.Font.FontFamily, 10);
             makeTemplate_btn.AutoSize = true;
@@ -189,14 +188,38 @@ namespace Comparer
             {
                 if (p.Name == panelName)
                 {
+                    string contName = "New Content";
                     Panel contPanel = new Panel();
                     Label lbl = new Label();
                     TextBox lblNameChangeTb = new TextBox();
                     TextBox tb = new TextBox();
                     Button btn = new Button();
-                    lbl.Parent = lblNameChangeTb.Parent = tb.Parent = btn.Parent = p;
 
-                    string contName = SetContentName(panelName, string.Empty);
+                    contPanel.AutoSize = false;
+                    contPanel.Parent = p;
+
+                    lbl.Parent = lblNameChangeTb.Parent = tb.Parent = btn.Parent = contPanel;
+
+                    lbl.Text = contName;
+                    lbl.DoubleClick += ChangeLabelName_click;
+
+                    lblNameChangeTb.KeyDown += ChangeLabelName_keyDown;
+                    lblNameChangeTb.Visible = false;
+
+                    btn.Size = new Size(23, 23);
+                    btn.Text = "X";
+                    btn.Click += RemoveContet_click;
+                    btn.TextAlign = ContentAlignment.MiddleCenter;
+
+                    contName = SetContentName(p.Name, contName);
+
+                    contPanel.Name = $"{p.Name}-{contName}-contPanel";
+                    lbl.Name = $"{p.Name}-{contName}-label";
+                    lblNameChangeTb.Name = $"{p.Name}-{contName}-labelNameChangeTb";
+                    tb.Name = $"{p.Name}-{contName}-tb";
+                    btn.Name = $"{p.Name}-{contName}-remBtn";
+
+                    contPanel.Size = new Size(tb.Width + btn.Width + lbl.Width, tb.Height + 2);
 
                     ContentUI.RearangeContent(p);
                     return;
@@ -206,6 +229,7 @@ namespace Comparer
         public void RemoveContet_click(object sender, EventArgs e)
         {
             List<string> contNames;
+
             Button button = (Button)sender;
             string[] nameSplit = button.Name.Split('-');
             string profileName = (string)nameSplit.GetValue(0);
@@ -222,48 +246,84 @@ namespace Comparer
             foreach (Panel p in dataFlowPanel.Controls.OfType<Panel>())
             {
                 if (p.Name != profileName) continue;
+
+                bool isProfileEmpty = true;
+
                 // Search for the specific content
                 foreach (Panel contPanel in p.Controls.OfType<Panel>())
                 {
-                    if ((string)contPanel.Name.Split('-').GetValue(1) == contentName) continue;
+                    if ((string)contPanel.Name.Split('-').GetValue(1) != contentName) continue;
                     foreach (Control c in contPanel.Controls)
                     {
                         contPanel.Controls.Remove(c);
                         c.Dispose();
                     }
                     p.Controls.Remove(contPanel);
+
+                    // Check if profile is empty
+                    string[] cNameSplit = contPanel.Name.Split('-');
+                    string cType = (string)cNameSplit.GetValue(cNameSplit.Length - 1);
+                    if (p.Controls.Count > 3)
+                        isProfileEmpty = false;
+                    break;
+                }
+
+                // Check if profile is empty
+                if (!isProfileEmpty)
+                {
                     ContentUI.RearangeContent(p);
                     return;
                 }
+
+                ProfileSpecContNames.Remove(p.Name);
+                dataFlowPanel.Controls.Remove(p);
+                p.Dispose();
             }
         }
 
-        public string SetContentName(string profileName, string contName, string oldName = null)
+        public void MakeTemplate_click(object sender, EventArgs e)
+        {
+            Panel profilePanel = null;
+            Button button = (Button)sender;
+
+            foreach(Panel p in dataFlowPanel.Controls.OfType<Panel>())
+            {
+                if(p.Name == (string)button.Name.Split('-').GetValue(0))
+                {
+                    profilePanel = p;
+                    break;
+                }
+            }
+            if(profilePanel != null)
+                Templates.Add(Template.MakeTemplate(profilePanel));
+        }
+
+        public string SetContentName(string profileName, string newContName, string oldName = null)
         {
             List<string> contNames;
             if (!ProfileSpecContNames.TryGetValue(profileName, out contNames))
                 contNames = new List<string>();
 
-            contName = contName.Replace(" ", string.Empty);
+            newContName = newContName.Replace(" ", string.Empty);
             int currNameCount = 0;
-            if (contNames.Contains(contName))
+            
+            List<string> reversedContNames = contNames;
+            reversedContNames.Reverse();
+            foreach (string s in reversedContNames)
             {
-                List<string> reversedContNames = contNames;
-                reversedContNames.Reverse();
-                foreach (string s in reversedContNames)
+                string[] split = s.Split('_');
+                if ((string)split.GetValue(0) == newContName)
                 {
-                    string[] split = s.Split('_');
-                    if ((string)split.GetValue(0) == contName)
-                    {
-                        currNameCount = (int)split.GetValue(split.Length - 1) + 1;
-                        break;
-                    }
+                    currNameCount = (int)split.GetValue(split.Length - 1) + 1;
+                    break;
                 }
             }
-            string newName = $"{contName}_{currNameCount}";
+
+            string newName = $"{newContName}_{currNameCount}";
             if (!string.IsNullOrWhiteSpace(oldName))
                 contNames.Remove(oldName);
             contNames.Add(newName);
+            MessageBox.Show(newName);
 
             // Rename all the elements
             if (!string.IsNullOrWhiteSpace(oldName))
@@ -274,19 +334,15 @@ namespace Comparer
                     foreach (Panel contPanel in p.Controls.OfType<Panel>())
                     {
                         if ((string)contPanel.Name.Split('-').GetValue(1) != oldName) continue;
-                        MessageBox.Show($"Contpanel : {contPanel.Name}");
                         foreach (Control c in contPanel.Controls)
                         {
-                            MessageBox.Show($"Old Name: {c.Name}");
                             string[] nameSplit = c.Name.Split('-');
                             nameSplit[1] = newName;
                             c.Name = String.Join("-", nameSplit);
-                            MessageBox.Show($"New Name: {c.Name}");
                         }
                         string[] contPNameSplit = contPanel.Name.Split('-');
                         contPNameSplit[1] = newName;
                         contPanel.Name = string.Join("-", contPNameSplit);
-                        MessageBox.Show(contPanel.Name);
                     }
                 }
             }
@@ -314,15 +370,8 @@ namespace Comparer
         }
         bool SaveTemplates()
         {
-            List<Template> Templates = new List<Template>();
             if (!File.Exists(TemplatesPath))
                 File.CreateText(TemplatesPath);
-            Template template = new Template("Car Bass Box");
-            template.AddContent("Name", string.Empty);
-            template.AddContent("Comfort", 7);
-            template.AddContent("Quality", 9);
-            template.AddContent("Feel", 5);
-            Templates.Add(template);
 
             JSON.SaveJsonFile(TemplatesPath, Templates);
             return true;

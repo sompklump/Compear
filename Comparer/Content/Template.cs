@@ -1,13 +1,29 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Windows.Forms;
 
 namespace Comparer.Content
 {
     public class Template
     {
-        public static void MakeTemplate_click(object sender, EventArgs e)
+        public static Template MakeTemplate(Panel profile)
         {
-
+            Template template = new Template();
+            string profileName = profile.Name;
+            foreach(Panel p in profile.Controls.OfType<Panel>())
+            {
+                string[] contNameSplit = p.Name.Split('-');
+                string contentName = (string)contNameSplit.GetValue(1);
+                foreach(TextBox v in p.Controls.OfType<TextBox>())
+                {
+                    if ((string)v.Name.Split('-').GetValue(v.Name.Split('-').Length - 1) != "tb") continue;
+                    template.AddContent(contentName, v.Text);
+                    break;
+                }
+            }
+            template.TemplateName = profileName;
+            return template;
         }
 
         public string TemplateName;
