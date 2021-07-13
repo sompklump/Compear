@@ -6,7 +6,8 @@ using System.Linq;
 using System.Windows.Forms;
 using Newtonsoft.Json;
 using HakuniAssets.IO;
-using Comparer.Content;
+using Comparer.Templates.Content;
+using Comparer.Templates;
 
 namespace Comparer
 {
@@ -294,8 +295,27 @@ namespace Comparer
                     break;
                 }
             }
-            if(profilePanel != null)
-                Templates.Add(Template.MakeTemplate(profilePanel));
+            if (profilePanel != null)
+            {
+                Template newTemp = Template.MakeTemplate(profilePanel);
+                InputBoxResponse resp = new InputBox().ShowDialog("Template Name", "Give your template a name", newTemp.TemplateName);
+                if (resp.state == InputBoxState.Ok)
+                {
+                    newTemp.TemplateName = resp.input;
+                    Templates.Add(newTemp);
+                }
+            }
+            SaveTemplates();
+            templates_toolTipDrop.DropDownItems.Clear();
+            foreach (Template tmp in LoadTemplates())
+            {
+                ToolStripButton b = new ToolStripButton();
+                b.Text = tmp.TemplateName;
+                b.Width = tmp.TemplateName.Length * 5;
+                b.Name = tmp.TemplateName;
+                b.Click += TemplateButton_click;
+                templates_toolTipDrop.DropDownItems.Add(b);
+            }
         }
 
         public string SetContentName(string profileName, string newContName, string oldName = null)
@@ -314,7 +334,7 @@ namespace Comparer
                 string[] split = s.Split('_');
                 if ((string)split.GetValue(0) == newContName)
                 {
-                    currNameCount = (int)split.GetValue(split.Length - 1) + 1;
+                    currNameCount = Convert.ToInt32(split.GetValue(split.Length - 1)) + 1;
                     break;
                 }
             }
@@ -323,7 +343,6 @@ namespace Comparer
             if (!string.IsNullOrWhiteSpace(oldName))
                 contNames.Remove(oldName);
             contNames.Add(newName);
-            MessageBox.Show(newName);
 
             // Rename all the elements
             if (!string.IsNullOrWhiteSpace(oldName))
